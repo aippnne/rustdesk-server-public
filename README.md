@@ -31,37 +31,23 @@ docker run -d --name rustdesk-server --network host --restart unless-stopped \
   aippme/rustdesk-server-s6-public:latest
 ```
 
-### 方式二：docker-compose（推荐）
+### 方式二：docker-compose（推荐，含 Nginx 加速）
 
-复制仓库内的 [docker-compose.example.yml](docker-compose.example.yml) 或直接使用：
+复制仓库内 [docker-compose.example.yml](docker-compose.example.yml) 与 [config.yaml.example](config.yaml.example)：
 
-```yaml
-services:
-  rustdesk:
-    network_mode: host
-    image: aippme/rustdesk-server-s6-public:latest
-    environment:
-      - RELAY=你的公网IP:21117
-      - RUSTDESK_API_RUSTDESK_ID_SERVER=你的公网IP:21116
-      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=你的公网IP:21117
-      - RUSTDESK_API_RUSTDESK_API_SERVER=http://你的公网IP:21114
-      - ENCRYPTED_ONLY=1
-      - MUST_LOGIN=N
-      - RUSTDESK_API_KEY_FILE=/data/id_ed25519.pub
-      - LIMIT_SPEED=100
-      - RUSTDESK_API_APP_BAN_THRESHOLD=3
-      - RUSTDESK_API_ADMIN_TITLE=RS SERVER
-      - TZ=Asia/Shanghai
-      - RUSTDESK_API_JWT_KEY=$(openssl rand -hex 32)
-    volumes:
-      - /root/rustdesk/server:/data
-      - /root/rustdesk/api:/app/data
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
+```bash
+mkdir -p /root/rustdesk
+# 1) 部署编排（已内置 Nginx 加速服务）
+cp docker-compose.example.yml /root/rustdesk/docker-compose.yaml
+# 2) API 配置（注意 api-addr 为内部端口 21140，配合 Nginx）
+cp config.yaml.example /root/rustdesk/config.yaml
+# 3) Nginx 配置（gzip + 30天静态缓存 + 反代）
+cp nginx.conf.example /root/rustdesk/nginx.conf
+# 4) 修改 docker-compose.yaml：你的公网IP / RUSTDESK_API_JWT_KEY 随机值
+docker compose -f /root/rustdesk/docker-compose.yaml up -d
 ```
 
-> 首次部署后访问 `http://你的IP:21114/_admin/` 打开管理后台，默认管理员 `admin` / 密码 `admin123`（**请立即修改**）。
+> 端口分工：**Nginx 对外监听 21114**（API/管理后台/网页客户端统一入口），apimain 改监听内部端口 **21140**，静态资源（webclient2/admin）gzip 压缩 + 30 天强缓存，二次打开秒开。
 
 ## 环境变量
 
@@ -76,6 +62,7 @@ services:
 | `RUSTDESK_API_KEY_FILE` | 服务器公钥文件路径 | `/data/id_ed25519.pub` |
 | `RUSTDESK_API_ADMIN_TITLE` | 管理后台标题 | `RS SERVER` |
 | `RUSTDESK_API_JWT_KEY` | API JWT 密钥（建议随机 64 位 hex） | `openssl rand -hex 32` |
+| `RUSTDESK_API_GIN_API_ADDR` | API 内部监听地址（Nginx 加速模式用 `0.0.0.0:21140`，不用 Nginx 时设 `0.0.0.0:21114`） | `0.0.0.0:21140` |
 | `TZ` | 时区 | `Asia/Shanghai` |
 
 ## 数据持久化
@@ -221,8 +208,8 @@ docker push <your-id>/rustdesk-server-s6-public:latest
 - 首次运行容器后 `cat /data/id_ed25519.pub` 查看公钥
 
 **Q4：网页客户端（webclient2）打开慢？**
-- 静态资源首次加载需要时间，可前置 Nginx 做 gzip + 静态缓存
-- 仓库已提供 `nginx.conf.example`（gzip 压缩 + 反代 21114 + HTTPS 注释示例），配合 `docker-compose.example.yml` 中的 nginx 服务使用
+- 首次加载需要时间，推荐前置 Nginx 加速：gzip 压缩 + 静态资源 30 天强缓存，二次打开秒开
+- 仓库已提供 `nginx.conf.example` + `config.yaml.example` + `docker-compose.example.yml`，按"快速开始-方式二"三步部署即可
 
 **Q5：迁移服务器？**
 - 停容器 → 打包两个数据目录（`/data`、`/app/data`）→ 新机器解压 → 改环境变量 IP → 重启
@@ -233,8 +220,9 @@ docker push <your-id>/rustdesk-server-s6-public:latest
 ├── Dockerfile              镜像构建文件
 ├── hbbs / hbbr             定制服务器二进制（1.1.16 + API 补丁，静态编译）
 ├── admin-dist/             定制管理后台前端（v76 + ip2region）
-├── docker-compose.example.yml  完整部署示例（含可选 Nginx 加速）
-├── nginx.conf.example      Nginx 反代/gzip/缓存配置示例
+├── docker-compose.example.yml  生产版部署示例（RustDesk + Nginx 加速）
+├── config.yaml.example     API 配置示例（Nginx 模式 api-addr=21140）
+├── nginx.conf.example      Nginx 反代/gzip/30天缓存配置示例
 ├── .dockerignore
 └── .github/workflows/      GitHub Actions 自动构建
 ```
