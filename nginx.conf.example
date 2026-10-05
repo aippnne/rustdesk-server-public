@@ -1,0 +1,105 @@
+# ============================================================
+# RustDesk Server Nginx 加速/反代配置示例
+# 用途：webclient2 / 管理后台 静态资源 gzip + 缓存 + 反代加速
+# 部署：
+#   1) 将本文件复制到服务器  /root/rustdesk/nginx/nginx.conf
+#   2) docker compose -f docker-compose.example.yml up -d
+#   3) 访问 http://你的域名/  （80 端口，自动反代到 21114）
+# 如需 HTTPS：安装证书后，把下面 listen 443 ssl 段启用即可
+# ============================================================
+
+user  nginx;
+worker_processes  auto;
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    keepalive_timeout  65;
+    server_tokens   off;
+
+    # ---- gzip 压缩（静态 JS/CSS 体积可减小 60%+）----
+    gzip  on;
+    gzip_vary on;
+    gzip_min_length 1k;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/json application/javascript
+               application/x-javascript text/xml application/xml image/svg+xml
+               font/ttf font/otf application/vnd.ms-fontobject;
+
+    # ---- 上游：RustDesk API（host 网络下本机 21114）----
+    upstream rustdesk_api {
+        server 127.0.0.1:21114;
+        keepalive 32;
+    }
+
+    # 安全响应头
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+
+    server {
+        listen 80;
+        server_name _;
+
+        # 管理后台 /_admin/
+        location /_admin/ {
+            proxy_pass http://rustdesk_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+        }
+
+        # 网页客户端 /webclient2/
+        location /webclient2/ {
+            proxy_pass http://rustdesk_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+        }
+
+        # API 接口
+        location /api/ {
+            proxy_pass http://rustdesk_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+        }
+
+        # 其他（健康检查等）统一反代
+        location / {
+            proxy_pass http://rustdesk_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+        }
+
+        # ============================================
+        # HTTPS 示例（有证书后取消注释并删除上面 listen 80 段）：
+        #   listen 443 ssl;
+        #   ssl_certificate     /etc/nginx/ssl/your.crt;
+        #   ssl_certificate_key /etc/nginx/ssl/your.key;
+        #   ssl_protocols TLSv1.2 TLSv1.3;
+        #   # 再加一个 80 → 443 跳转的 server 即可
+        # ============================================
+    }
+}

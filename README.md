@@ -222,7 +222,7 @@ docker push <your-id>/rustdesk-server-s6-public:latest
 
 **Q4：网页客户端（webclient2）打开慢？**
 - 静态资源首次加载需要时间，可前置 Nginx 做 gzip + 静态缓存
-- 参考 `docker-compose.example.yml` 中 Nginx 加速方案
+- 仓库已提供 `nginx.conf.example`（gzip 压缩 + 反代 21114 + HTTPS 注释示例），配合 `docker-compose.example.yml` 中的 nginx 服务使用
 
 **Q5：迁移服务器？**
 - 停容器 → 打包两个数据目录（`/data`、`/app/data`）→ 新机器解压 → 改环境变量 IP → 重启
@@ -233,7 +233,8 @@ docker push <your-id>/rustdesk-server-s6-public:latest
 ├── Dockerfile              镜像构建文件
 ├── hbbs / hbbr             定制服务器二进制（1.1.16 + API 补丁，静态编译）
 ├── admin-dist/             定制管理后台前端（v76 + ip2region）
-├── docker-compose.example.yml  完整部署示例（含 Nginx 加速可选）
+├── docker-compose.example.yml  完整部署示例（含可选 Nginx 加速）
+├── nginx.conf.example      Nginx 反代/gzip/缓存配置示例
 ├── .dockerignore
 └── .github/workflows/      GitHub Actions 自动构建
 ```

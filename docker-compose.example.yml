@@ -44,6 +44,9 @@ services:
       - NET_ADMIN
 
   # ---- 可选：Nginx 反代 + 静态资源加速（webclient2 加载优化）----
+  # 使用前：
+  #   1) 把仓库内 nginx.conf.example 复制到 /root/rustdesk/nginx/nginx.conf
+  #   2) 按需修改 server_name / 端口（默认 80 → 反代 21114，支持 HTTPS 注释）
   # 若不需要可注释掉整个 nginx 服务与下面的 nginx 相关配置
   nginx:
     image: nginx:alpine
