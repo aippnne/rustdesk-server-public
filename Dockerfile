@@ -12,13 +12,18 @@
 
 FROM lejianwen/rustdesk-server-s6:latest
 
+# ---- OCI 元数据标签（docker inspect 可查） ----
+LABEL org.opencontainers.image.title="RustDesk Server Public"
+LABEL org.opencontainers.image.description="RustDesk server with custom hbbs/hbbr 1.1.16 + ART-style admin web v76, no embedded server config"
+LABEL org.opencontainers.image.version="1.1.16"
+LABEL org.opencontainers.image.source="https://github.com/aippnne/rustdesk-server-public"
+
 # ---- 1. 替换定制静态编译的 hbbs/hbbr ----
 # 说明：官方 s6 镜像中 hbbs/hbbr 位于 /usr/bin/（s6 服务脚本调用）
 #       若基础镜像版本路径有变化，可先 docker run 进容器确认
-COPY hbbs /usr/bin/hbbs
-COPY hbbr /usr/bin/hbbr
-RUN chmod +x /usr/bin/hbbs /usr/bin/hbbr \
-    && hbbs --version 2>/dev/null || true
+COPY --chmod=755 hbbs /usr/bin/hbbs
+COPY --chmod=755 hbbr /usr/bin/hbbr
+RUN hbbs --version 2>/dev/null || true
 
 # ---- 2. 定制管理后台 / 网页客户端前端（v76） ----
 # 覆盖默认 resources/admin（含 static/、index.html、ip2region.xdb）

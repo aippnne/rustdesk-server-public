@@ -6,10 +6,19 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: '额外推送的版本标签（如 v1.1.16），留空则只推 latest'
+        required: false
+        default: ''
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # 防止连续 push 时并发重复构建，串行执行
+    concurrency:
+      group: build-and-push
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,5 +47,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/rustdesk-server-s6-public:latest
+            ${{ inputs.version_tag != '' && format('{0}/rustdesk-server-s6-public:{1}', secrets.DOCKERHUB_USERNAME, inputs.version_tag) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

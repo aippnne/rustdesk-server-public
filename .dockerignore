@@ -1,0 +1,9 @@
+# Docker build context 排除项（减小构建上下文体积，加速构建）
+.git
+.github
+.gitignore
+*.md
+*.txt
+*.log
+**/.DS_Store
+**/Thumbs.db

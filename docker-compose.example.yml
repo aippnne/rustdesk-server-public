@@ -1,0 +1,55 @@
+# ============================================================
+# RustDesk Server 公开版镜像部署示例（含可选 Nginx 加速）
+# 使用：docker compose -f docker-compose.example.yml up -d
+# 部署前：把下面所有 你的公网IP / 你的域名 替换成真实值
+# ============================================================
+version: '3.8'
+
+services:
+  # ---- RustDesk 主服务（host 网络，复用宿主机网络栈）----
+  rustdesk:
+    network_mode: host
+    image: aippme/rustdesk-server-s6-public:latest
+    environment:
+      # 中继服务器（TCP 21117）
+      - RELAY=你的公网IP:21117
+      # ID 服务器（TCP+UDP 21116，打洞）
+      - RUSTDESK_API_RUSTDESK_ID_SERVER=你的公网IP:21116
+      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=你的公网IP:21117
+      # API / 管理后台 / 网页客户端地址
+      - RUSTDESK_API_RUSTDESK_API_SERVER=http://你的公网IP:21114
+      # 强制加密：1 开 / 0 关（加密模式需向客户端分发公钥）
+      - ENCRYPTED_ONLY=1
+      # 是否强制登录（Y/N）
+      - MUST_LOGIN=N
+      # 服务器公钥文件（首启自动生成）
+      - RUSTDESK_API_KEY_FILE=/data/id_ed25519.pub
+      # 限流：中继带宽限制（KB/s，0 不限）
+      - LIMIT_SPEED=100
+      # 登录失败多少次封禁（0 关闭）
+      - RUSTDESK_API_APP_BAN_THRESHOLD=3
+      # 管理后台标题
+      - RUSTDESK_API_ADMIN_TITLE=RS SERVER
+      # 时区
+      - TZ=Asia/Shanghai
+      # API JWT 密钥（强烈建议随机生成，如 openssl rand -hex 32）
+      - RUSTDESK_API_JWT_KEY=请替换成随机64位hex
+    volumes:
+      # hbbs 数据 + 服务器密钥
+      - /root/rustdesk/server:/data
+      # API 数据库（用户/设备/日志/地址簿）
+      - /root/rustdesk/api:/app/data
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+
+  # ---- 可选：Nginx 反代 + 静态资源加速（webclient2 加载优化）----
+  # 若不需要可注释掉整个 nginx 服务与下面的 nginx 相关配置
+  nginx:
+    image: nginx:alpine
+    network_mode: host
+    volumes:
+      - /root/rustdesk/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - rustdesk
