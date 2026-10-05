@@ -9,6 +9,7 @@
 
 - **定制 hbbs / hbbr**：官方 1.1.16 + lejianwen API 补丁，musl 静态编译，零依赖（详见[hbbs/hbbr 更新说明](#hbbshbbr-更新说明)）
 - **定制管理后台**：ART Design Pro 风格前端，内置 **ip2region** 离线 IP 地理位置解析（详见[管理后台说明](#管理后台admin-dist优化与功能说明)）
+- **内置完整脱敏配置**：镜像自带 `config.yaml`（Nginx 加速模式 21140）+ `nginx.conf` 模板，开箱即用，无任何服务器 IP/密钥
 - **网页客户端** `webclient2`：浏览器直接远程控制
 - **API 后台**：用户/设备/地址簿/登录日志/审计等管理功能
 
@@ -33,21 +34,23 @@ docker run -d --name rustdesk-server --network host --restart unless-stopped \
 
 ### 方式二：docker-compose（推荐，含 Nginx 加速）
 
-复制仓库内 [docker-compose.example.yml](docker-compose.example.yml) 与 [config.yaml.example](config.yaml.example)：
+镜像已**内置脱敏后的完整配置**（`/app/conf/config.yaml` 生产默认 + `/app/resources/nginx.conf` 模板），只需两步：
 
 ```bash
 mkdir -p /root/rustdesk
 # 1) 部署编排（已内置 Nginx 加速服务）
 cp docker-compose.example.yml /root/rustdesk/docker-compose.yaml
-# 2) API 配置（注意 api-addr 为内部端口 21140，配合 Nginx）
-cp config.yaml.example /root/rustdesk/config.yaml
-# 3) Nginx 配置（gzip + 30天静态缓存 + 反代）
-cp nginx.conf.example /root/rustdesk/nginx.conf
-# 4) 修改 docker-compose.yaml：你的公网IP / RUSTDESK_API_JWT_KEY 随机值
+# 2) 从镜像提取内置 nginx 配置（gzip + 30天静态缓存 + 反代 21140）
+docker run -d --name rd-tmp aippme/rustdesk-server-s6-public:latest sleep 5
+docker cp rd-tmp:/app/resources/nginx.conf /root/rustdesk/nginx.conf
+docker rm -f rd-tmp
+# 3) 修改 docker-compose.yaml：你的公网IP / RUSTDESK_API_JWT_KEY 随机值
 docker compose -f /root/rustdesk/docker-compose.yaml up -d
 ```
 
-> 端口分工：**Nginx 对外监听 21114**（API/管理后台/网页客户端统一入口），apimain 改监听内部端口 **21140**，静态资源（webclient2/admin）gzip 压缩 + 30 天强缓存，二次打开秒开。
+> 端口分工：**Nginx 对外监听 21114**（API/管理后台/网页客户端统一入口），apimain 监听内部端口 **21140**，静态资源（webclient2/admin）gzip 压缩 + 30 天强缓存，二次打开秒开。
+>
+> `config.yaml` 无需手动挂载——镜像已内置（Nginx 加速模式）。如需自定义（如改后台标题、开注册），将 `config.yaml.example` 复制到 `/root/rustdesk/config.yaml` 并在 compose 中取消挂载注释即可。
 
 ## 环境变量
 
@@ -169,7 +172,7 @@ API 服务器: http://你的IP:21114（自编译客户端内置；官方客户�
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
-| `latest`（v1.1.16-custom） | 2026-10-05 | 首次公开版：定制 hbbs/hbbr（1.1.16 + lejianwen API）+ 管理后台 v76（ART 风格 + ip2region） |
+| `latest`（v1.1.16-custom） | 2026-10-05 | 定制 hbbs/hbbr（1.1.16 + lejianwen API）+ 管理后台 v76（ART 风格 + ip2region）+ **内置脱敏生产配置**（config.yaml 21140 + nginx.conf 模板） |
 
 ## 本地构建
 

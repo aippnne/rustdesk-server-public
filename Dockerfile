@@ -29,6 +29,16 @@ RUN hbbs --version 2>/dev/null || true
 # 覆盖默认 resources/admin（含 static/、index.html、ip2region.xdb）
 COPY admin-dist/ /app/resources/admin/
 
+# ---- 3. 内置脱敏后的生产配置（开箱即用）----
+# config.yaml：内置 Nginx 加速模式（gin.api-addr=21140，21114 让给 Nginx）
+#              IP/密钥均为占位符，部署时由环境变量（RUSTDESK_API_*）注入
+#              如需自定义，挂载 /app/conf/config.yaml 覆盖即可
+COPY config.yaml.example /app/conf/config.yaml
+
+# nginx.conf 模板：内置供部署时提取/参考（gzip + 30天静态缓存 + 反代 21140）
+#   提取到宿主机：docker cp <容器名>:/app/resources/nginx.conf /root/rustdesk/nginx.conf
+COPY nginx.conf.example /app/resources/nginx.conf
+
 # ---- 端口（host 模式部署时由环境决定） ----
 # 21114 API/后台/网页客户端   21116 ID 服务器   21117 中继服务器
 EXPOSE 21114 21116 21117
