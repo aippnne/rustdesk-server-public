@@ -1,0 +1,1 @@
+import{h as r}from"../entry/index-6UDK3-ON.js";function u(e){return r({url:"/device_group/list",params:e})}function o(e){return r({url:"/device_group/create",method:"post",data:e})}function c(e){return r({url:"/device_group/update",method:"post",data:e})}function i(e){return r({url:"/device_group/delete",method:"post",data:e})}export{o as c,u as l,i as r,c as u};

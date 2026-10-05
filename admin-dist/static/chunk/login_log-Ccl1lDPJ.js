@@ -1,0 +1,1 @@
+import{h as t}from"../entry/index-6UDK3-ON.js";function l(e){return t({url:"/login_log/list",params:e})}function r(e){return t({url:"/login_log/delete",method:"post",data:e})}function n(e){return t({url:"/login_log/batchDelete",method:"post",data:e})}export{n as b,l,r};
